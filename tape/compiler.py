@@ -210,14 +210,38 @@ def compile_strategy(
 # ════════════════════════════════════════════════════════════════════════════
 
 def _strip_markdown_fences(text: str) -> str:
-    """Opus sometimes wraps code in ```python ... ``` despite the prompt.
+    """Strip the most common LLM-rendering artifacts from the response.
 
-    Strip those if present. Handle both ``` and ```python flavors.
+    Three artifacts we routinely see from Opus when generating long code:
+      1. ```python ... ``` fences (despite the prompt asking for raw code)
+      2. UI render leakage: literal "Copy code" / "复制" / "コピー" tokens
+         that come from the model imagining a code-block copy button
+      3. Trailing chatty commentary after the code
+
+    We strip all three so the downstream compile() + importlib steps don't
+    fail on what is otherwise valid Python.
     """
     text = text.strip()
+
+    # 1. Markdown fences
     m = re.match(r"^```(?:python)?\n?(.*?)\n?```$", text, re.DOTALL)
     if m:
-        return m.group(1)
+        text = m.group(1)
+
+    # 2. UI-render artifacts — single tokens that look like "copy button" leakage.
+    # These tend to appear on their own line, with no surrounding code.
+    JUNK_TOKENS = {
+        "copy", "copy code", "复制", "复制代码", "コピー",
+        "copy_code", "copy-code",
+    }
+    cleaned_lines = []
+    for line in text.splitlines():
+        stripped = line.strip().lower()
+        if stripped in JUNK_TOKENS:
+            continue
+        cleaned_lines.append(line)
+    text = "\n".join(cleaned_lines).rstrip()
+
     return text
 
 

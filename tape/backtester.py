@@ -67,6 +67,63 @@ class SyntheticMarket:
     news_trajectory: list[Optional[tuple[str, float]]]  # (sentiment, strength) per day
 
 
+# Realistic market titles by theme, so keyword-filtering strategies
+# (e.g. "geopolitical conflict markets") have something to match. Drawn
+# from the kinds of questions actually listed on Polymarket.
+_TITLE_BANK = {
+    "geopolitical": [
+        "Will the Iran-Israel conflict end by {date}?",
+        "Will Russia and Ukraine reach a ceasefire before {date}?",
+        "Will the US conduct a military strike on Iran by {date}?",
+        "Will North Korea launch a missile test before {date}?",
+        "Will China invade Taiwan by {date}?",
+        "Will NATO troops enter Ukraine before {date}?",
+        "Will there be a nuclear weapon detonation by {date}?",
+        "Will the Gaza ceasefire hold through {date}?",
+    ],
+    "macro": [
+        "Will the Fed cut rates at the {date} meeting?",
+        "Will US CPI come in above 3% in {date}?",
+        "Will the S&P 500 close above 7000 by {date}?",
+        "Will the US enter a recession by {date}?",
+        "Will unemployment exceed 5% by {date}?",
+    ],
+    "crypto": [
+        "Will Bitcoin dip below $50,000 before {date}?",
+        "Will Ethereum reach $5,000 by {date}?",
+        "Will a spot Solana ETF be approved by {date}?",
+        "Will Bitcoin hit a new all-time high by {date}?",
+    ],
+    "politics": [
+        "Will a government shutdown happen before {date}?",
+        "Will the incumbent win the {date} election?",
+        "Will a new Supreme Court justice be confirmed by {date}?",
+    ],
+    "sports": [
+        "Will the Lakers make the playoffs by {date}?",
+        "Will Verstappen win the championship by {date}?",
+    ],
+}
+
+# Which themes each archetype draws from (affects keyword matching realism)
+_ARCHETYPE_THEMES = {
+    "bond":         ["geopolitical", "politics", "crypto"],
+    "conviction":   ["geopolitical", "macro", "crypto", "politics"],
+    "binary_macro": ["macro", "politics"],
+    "noise":        ["sports", "crypto"],
+}
+
+
+def _gen_title(rng: Random, archetype: str) -> str:
+    theme = rng.choice(_ARCHETYPE_THEMES[archetype])
+    template = rng.choice(_TITLE_BANK[theme])
+    # Cheap synthetic date label
+    month = rng.choice(["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
+    day = rng.randint(1, 28)
+    return template.format(date=f"{month} {day}")
+
+
 def _sample_market(rng: Random, key: str) -> SyntheticMarket:
     """Draw one market from the archetype mixture."""
 
@@ -104,7 +161,7 @@ def _sample_market(rng: Random, key: str) -> SyntheticMarket:
         terminal = 1.0 if we_win else 0.0
         trajectory = _drift_toward(price_start, terminal, horizon_days, vol=0.015, rng=rng)
         news_trajectory = _gen_news(horizon_days, rng, bias=0.3)
-        title = f"[bond] Market #{key.split('_')[-1]}"
+        title = _gen_title(rng, archetype)
         final_outcome = we_win
 
     elif archetype == "conviction":
@@ -116,7 +173,7 @@ def _sample_market(rng: Random, key: str) -> SyntheticMarket:
         terminal = 1.0 if we_win else 0.0
         trajectory = _drift_toward(price_start, terminal, horizon_days, vol=0.04, rng=rng)
         news_trajectory = _gen_news(horizon_days, rng, bias=0.5)
-        title = f"[conviction] Market #{key.split('_')[-1]}"
+        title = _gen_title(rng, archetype)
         final_outcome = we_win
 
     elif archetype == "binary_macro":
@@ -127,7 +184,7 @@ def _sample_market(rng: Random, key: str) -> SyntheticMarket:
         terminal = 1.0 if we_win else 0.0
         trajectory = _drift_with_jumps(price_start, terminal, horizon_days, n_jumps=2, vol=0.025, rng=rng)
         news_trajectory = _gen_news(horizon_days, rng, bias=0.6)
-        title = f"[macro] Market #{key.split('_')[-1]}"
+        title = _gen_title(rng, archetype)
         final_outcome = we_win
 
     else:  # noise
@@ -138,7 +195,7 @@ def _sample_market(rng: Random, key: str) -> SyntheticMarket:
         terminal = 1.0 if we_win else 0.0
         trajectory = _drift_toward(price_start, terminal, horizon_days, vol=0.06, rng=rng)
         news_trajectory = _gen_news(horizon_days, rng, bias=0.1)
-        title = f"[noise] Market #{key.split('_')[-1]}"
+        title = _gen_title(rng, archetype)
         final_outcome = we_win
 
     return SyntheticMarket(

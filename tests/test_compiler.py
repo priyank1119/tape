@@ -47,6 +47,19 @@ class TestFenceStripping:
         text = "  \n```python\nclass Strategy: pass\n```\n  "
         assert _strip_markdown_fences(text) == "class Strategy: pass"
 
+    def test_strips_copy_button_artifact_chinese(self):
+        # Opus 4.8 sometimes appends '复制' (Chinese 'copy') — UI render leakage
+        text = "class Strategy: pass\n\n复制"
+        assert _strip_markdown_fences(text) == "class Strategy: pass"
+
+    def test_strips_copy_button_artifact_english(self):
+        text = "class Strategy: pass\n\nCopy code"
+        assert _strip_markdown_fences(text) == "class Strategy: pass"
+
+    def test_strips_artifact_inside_fence(self):
+        text = "```python\nclass Strategy: pass\n复制\n```"
+        assert _strip_markdown_fences(text) == "class Strategy: pass"
+
 
 # ── Structural validation ──────────────────────────────────────────────────
 
