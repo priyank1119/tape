@@ -50,3 +50,4 @@ bot_logs/
 backtest_cache/
 .ratelimit.json
 strategies/swarm/
+strategies/chiptest/

@@ -618,10 +618,15 @@ def _build_result(
     # otherwise shows as a confusing wall of zeros. Explains WHY there's no
     # result so the user can adjust their brief.
     note = ""
-    if len(portfolio.trades) == 0:
+    n_trades = len(portfolio.trades)
+    if n_trades == 0:
         note = ("No trades: the strategy's entry criteria matched 0 of "
                 f"{n_markets} markets over {days} days. Try a wider price band, "
                 "a broader market type, or looser entry conditions.")
+    elif n_trades < 10:
+        note = (f"Only {n_trades} trades over {days} days — too thin to be "
+                "statistically reliable. The thesis is narrow for this market "
+                "universe; try a wider price band or broader market type.")
 
     return {
         "sharpe": round(sharpe, 3),
