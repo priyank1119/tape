@@ -67,14 +67,17 @@ class TestBacktestClauses:
     """Each clause should pass iff the metric clears the threshold."""
 
     def test_sharpe_passes_at_threshold(self, good_backtest):
-        # Default rubric: min_sharpe = 0.5
-        good_backtest["sharpe"] = 0.5
+        rubric = load_rubric()
+        threshold = rubric["backtest"]["min_sharpe"]
+        good_backtest["sharpe"] = threshold  # exactly at threshold should pass
         v = grade(good_backtest, skip_opus=True)
         sharpe_clause = next(c for c in v.clauses if c.name == "backtest.sharpe_ge_min")
         assert sharpe_clause.status == "pass"
 
     def test_sharpe_fails_below_threshold(self, good_backtest):
-        good_backtest["sharpe"] = 0.4
+        rubric = load_rubric()
+        threshold = rubric["backtest"]["min_sharpe"]
+        good_backtest["sharpe"] = threshold - 0.01  # just under the threshold
         v = grade(good_backtest, skip_opus=True)
         sharpe_clause = next(c for c in v.clauses if c.name == "backtest.sharpe_ge_min")
         assert sharpe_clause.status == "fail"

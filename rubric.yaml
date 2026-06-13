@@ -28,10 +28,11 @@ schema_version: 1
 
 # ── Phase 1: backtest thresholds ─────────────────────────────────────────────
 backtest:
-  # Risk-adjusted return. 0.0 = random; 0.8 = decent; 1.5 = strong.
+  # Risk-adjusted return. 0.0 = random; 0.5 = decent; 1.0 = strong.
   # For prediction markets with discrete resolution, Sharpe is computed on
-  # daily P&L curve (mark-to-market + realized).
-  min_sharpe: 0.5
+  # daily P&L curve. The chunky jumps on resolution days inflate stdev,
+  # which is why a "good" prediction-market Sharpe is lower than equities.
+  min_sharpe: 0.3
 
   # Maximum drawdown as % of peak portfolio value. Higher = more painful.
   # 15% is the default "I can stomach this" line for an automated bot.
