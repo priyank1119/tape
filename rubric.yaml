@@ -1,0 +1,100 @@
+# ════════════════════════════════════════════════════════════════════════════
+# Tape — Strategy Rubric
+# ════════════════════════════════════════════════════════════════════════════
+# Model-verifiable pass/fail criteria for compiled trading strategies.
+#
+# Every compiled strategy must clear this rubric in TWO phases:
+#
+#   1. BACKTEST   — replay 90 days of Polymarket fills against the strategy.
+#                   Must satisfy all backtest thresholds.
+#
+#   2. LIVE PROBE — after sandbox deployment, the bot's /health endpoint
+#                   must respond and ≥1 cycle must complete cleanly.
+#
+# A separate Opus-mediated grader (`tape/grader.py`) reads the backtest JSON
+# + the live probe results + bot.log and returns:
+#
+#   { passed: bool, reasons: [str], opus_critique: str }
+#
+# Strategies that fail are returned to the user with the failure reasons
+# (no deployment, no spent gas, no risk taken).
+#
+# The thresholds below are the DEFAULT (medium risk). The strategy compiler
+# may adjust them based on user-provided risk tolerance ("conservative",
+# "aggressive", "moderate") — see `tape/prompts/compile.md`.
+# ════════════════════════════════════════════════════════════════════════════
+
+schema_version: 1
+
+# ── Phase 1: backtest thresholds ─────────────────────────────────────────────
+backtest:
+  # Risk-adjusted return. 0.0 = random; 0.8 = decent; 1.5 = strong.
+  # For prediction markets with discrete resolution, Sharpe is computed on
+  # daily P&L curve (mark-to-market + realized).
+  min_sharpe: 0.5
+
+  # Maximum drawdown as % of peak portfolio value. Higher = more painful.
+  # 15% is the default "I can stomach this" line for an automated bot.
+  max_drawdown_pct: 20
+
+  # Minimum number of trades in the backtest window.
+  # Below this, statistics are unreliable — could be lucky/unlucky.
+  min_trades: 10
+
+  # Minimum % of trades that ended profitably (excludes still-open).
+  # Note: a strategy with 40% win rate can still be profitable if winners
+  # are much larger than losers. Default is permissive.
+  min_win_rate_pct: 40
+
+  # Minimum cumulative return over the backtest window (90 days default).
+  # Below this, the strategy might be break-even noise rather than edge.
+  min_total_return_pct: 2
+
+  # Maximum exposure concentration. If >X% of capital is ever in a single
+  # market, the strategy is too concentrated for sandbox deployment.
+  max_single_market_concentration_pct: 60
+
+# ── Phase 2: live deployment probes ──────────────────────────────────────────
+live:
+  # The deployed bot's container must expose this endpoint and return 2xx.
+  health_endpoint: "/health"
+  health_timeout_secs: 10
+
+  # Number of complete bot cycles required before we consider the deployment
+  # "live" (a cycle = fetch prices + decide + execute or HOLD).
+  min_cycles_in_first_hour: 1
+
+  # Maximum allowed startup errors in bot.log (case-insensitive scan).
+  max_startup_errors: 0
+
+  # The compiled strategy module must IMPORT cleanly. Verified by the
+  # deployer via `python -c "import strategy"` inside the container.
+  imports_cleanly: true
+
+# ── Phase 3: Opus 4.8 critique ───────────────────────────────────────────────
+# The grader feeds the backtest JSON + the compiled strategy + this rubric
+# to Opus 4.8, which returns a structured critique. The strategy passes
+# ONLY if Opus says "approve". This catches issues thresholds can't:
+#   - Strategy that game-the-rubric (e.g. only trades once at 99% confidence)
+#   - Logic bugs that pass backtest but would break live (e.g. lookahead bias)
+#   - Hard-coded constants that look like overfitting
+opus_critique:
+  enabled: true
+  model: "claude-opus-4-8"
+  required_verdict: "approve"   # "approve" | "revise" | "reject"
+
+# ── Done-when (the verifiable predicate) ─────────────────────────────────────
+# `tape/grader.py` returns passed=True iff EVERY clause below evaluates True.
+# Another team can run `python -m tape.grader strategies/foo.py` and get
+# a deterministic yes/no — this is what makes Tape's rubric model-verifiable.
+done_when:
+  - backtest.sharpe_ge_min
+  - backtest.drawdown_within_limit
+  - backtest.trade_count_ge_min
+  - backtest.win_rate_ge_min
+  - backtest.total_return_ge_min
+  - backtest.concentration_within_limit
+  - live.health_responds
+  - live.startup_clean
+  - live.imports_cleanly
+  - opus_critique.verdict_eq_approve
