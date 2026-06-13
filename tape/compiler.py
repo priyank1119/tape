@@ -133,7 +133,7 @@ def compile_strategy(
         return CompileResult(success=False, model=model,
                              error="ANTHROPIC_API_KEY not set")
 
-    client = Anthropic(api_key=api_key)
+    client = Anthropic(api_key=api_key, timeout=60.0, max_retries=2)
 
     user_msg = (
         f"## Full strategy_base.py contract (for reference)\n\n"

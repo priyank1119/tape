@@ -147,6 +147,38 @@ def cmd_grade(args) -> int:
     return 0 if verdict.passed else 1
 
 
+def cmd_swarm(args) -> int:
+    """Run the Opus 4.8 tournament: compile v1 → 5 refinements → judge."""
+    from tape.compiler import compile_strategy
+    from tape.backtester import run as backtest_run
+    from tape.swarm import run_tournament
+
+    _say(args, "▸ Compiling v1 with Opus 4.8…")
+    comp = compile_strategy(args.brief, out_dir=args.out, model=args.model)
+    if not comp.success:
+        print(f"✗ Compile failed: {comp.error}")
+        return 1
+    _say(args, f"  ✓ {comp.strategy_name}")
+
+    _say(args, "▸ Backtesting v1…")
+    bt = backtest_run(comp.strategy_path, seed=args.seed)
+    _say(args, f"  ✓ Sharpe {bt['sharpe']}  return {bt['total_return_pct']}%")
+
+    _say(args, "▸ Running tournament: 5 parallel Opus 4.8 refinements + judge…")
+    result = run_tournament(comp.strategy_path, bt, model=args.model)
+
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2))
+    else:
+        print()
+        for v in result.variants:
+            mark = "🏆" if v.variant_id == result.winner_id else "  "
+            print(f"{mark} {v.metrics_line()}")
+        print(f"\nWINNER: {result.winner_id}")
+        print(f"REASON: {result.judge_reason}")
+    return 0
+
+
 def cmd_deploy(args) -> int:
     from tape.deployer import deploy_strategy, probe
     result = deploy_strategy(args.strategy_path, budget_usd=args.budget)
@@ -229,6 +261,15 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--skip-opus", action="store_true")
     g.add_argument("--json", action="store_true")
     g.set_defaults(func=cmd_grade)
+
+    # swarm
+    s = sub.add_parser("swarm", help="Opus 4.8 tournament: compile → 5 refine → judge")
+    s.add_argument("brief", help="Strategy brief in plain English")
+    s.add_argument("--out", default=str(REPO_ROOT / "strategies"))
+    s.add_argument("--model", default=DEFAULT_MODEL)
+    s.add_argument("--seed", type=int, default=42)
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(func=cmd_swarm)
 
     # deploy
     d = sub.add_parser("deploy", help="Deploy a strategy to the sandbox")

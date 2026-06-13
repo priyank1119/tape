@@ -62,6 +62,13 @@
   button.deploy{background:var(--accent2);color:#150a24;border:none;border-radius:8px;padding:10px 20px;font-weight:700;cursor:pointer}
   .bot-state{margin-top:14px;font-family:var(--mono);font-size:0.8rem;color:var(--text2);background:#04070c;border:1px solid var(--border);border-radius:8px;padding:12px;display:none}
   .bot-state.show{display:block}
+  .swarm-panel{margin-top:14px;display:none}
+  .swarm-panel.show{display:block}
+  .variant-row{display:grid;grid-template-columns:1.4fr 0.7fr 0.7fr 0.7fr 0.7fr 0.7fr;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:0.78rem;align-items:center}
+  .variant-row.head{color:var(--text3);text-transform:uppercase;font-size:0.66rem;letter-spacing:0.05em}
+  .variant-row.winner{background:rgba(188,140,255,0.12);border-radius:8px;border:1px solid var(--accent2)}
+  .variant-name{color:var(--text)}
+  .swarm-judge{margin-top:12px;padding:12px;background:rgba(188,140,255,0.08);border:1px solid var(--accent2);border-radius:8px;font-size:0.88rem}
   .footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);color:var(--text3);font-size:0.8rem}
 </style>
 </head>
@@ -101,9 +108,11 @@
   </div>
   <div class="verdict" id="verdict"></div>
   <div class="deploy-row" id="deployRow">
+    <button class="deploy" id="swarmBtn">Refine with Opus 4.8 swarm (5 agents + judge)</button>
     <button class="deploy" id="deployBtn">Deploy to sandbox ($10 paper budget)</button>
     <span class="toggle">paper trading — no real capital at risk</span>
   </div>
+  <div class="swarm-panel" id="swarmPanel"></div>
   <div class="bot-state" id="botState"></div>
 </div>
 <div class="footer">Tape is not financial advice. Strategies trade in a paper sandbox. Powered by Claude Opus 4.8.</div>
@@ -117,7 +126,7 @@ $("runBtn").addEventListener("click",()=>{
   const brief=$("brief").value.trim();
   if(!brief){$("brief").focus();return;}
   $("pipeline").classList.add("active");
-  $("verdict").className="verdict";$("deployRow").className="deploy-row";$("botState").className="bot-state";
+  $("verdict").className="verdict";$("deployRow").className="deploy-row";$("botState").className="bot-state";$("swarmPanel").className="swarm-panel";
   ["compile","backtest","grade"].forEach(s=>{$("stage-"+s).className="stage";$("body-"+s).textContent="";$("icon-"+s).className="stage-icon pending";$("icon-"+s).textContent={compile:"1",backtest:"2",grade:"3"}[s];});
   $("runBtn").disabled=true;$("runBtn").textContent="Running...";
   const skipOpus=$("skipOpus").checked;
@@ -131,13 +140,55 @@ $("runBtn").addEventListener("click",()=>{
 });
 $("deployBtn").addEventListener("click",async()=>{
   if(!lastStrategyPath)return;
+  const reset=()=>{$("deployBtn").disabled=false;$("deployBtn").textContent="Deploy to sandbox ($10 paper budget)";};
   $("deployBtn").disabled=true;$("deployBtn").textContent="Deploying...";
-  const resp=await fetch("/api/deploy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({strategy_path:lastStrategyPath,budget:10})});
-  const d=await resp.json();
-  $("botState").className="bot-state show";
-  if(!d.success){$("botState").textContent="Deploy failed: "+d.error;return;}
-  $("botState").textContent="Deployed "+d.strategy_name+" · bot "+d.bot_id+" · polling live state...";
-  pollBot(d.bot_id);
+  try{
+    const resp=await fetch("/api/deploy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({strategy_path:lastStrategyPath,budget:10})});
+    const d=await resp.json();
+    $("botState").className="bot-state show";
+    if(!d.success){$("botState").textContent="Deploy failed: "+d.error;reset();return;}
+    $("botState").textContent="Deployed "+d.strategy_name+" · bot "+d.bot_id+" · polling live state...";
+    $("deployBtn").textContent="Deployed ✓ — live";  // success: stays disabled (no duplicate bots)
+    pollBot(d.bot_id);
+  }catch(err){
+    $("botState").className="bot-state show";$("botState").textContent="Deploy error: "+err;reset();
+  }
+});
+$("swarmBtn").addEventListener("click",()=>{
+  if(!lastStrategyPath)return;
+  $("swarmBtn").disabled=true;$("swarmBtn").textContent="Running 5 Opus 4.8 agents + judge...";
+  const panel=$("swarmPanel");panel.className="swarm-panel show";panel.textContent="";
+  const head=document.createElement("div");head.style.marginBottom="8px";head.style.color="var(--text2)";
+  head.textContent="Each agent refines the strategy a different way, in parallel. Then a 6th Opus 4.8 judges the backtests and picks the winner.";
+  panel.appendChild(head);
+  const table=document.createElement("div");table.id="variantTable";panel.appendChild(table);
+  const hdr=document.createElement("div");hdr.className="variant-row head";
+  ["variant / angle","sharpe","return","drawdown","trades","rubric"].forEach(t=>{const c=document.createElement("span");c.textContent=t;hdr.appendChild(c);});
+  table.appendChild(hdr);
+  const es=new EventSource("/api/swarm?strategy_path="+encodeURIComponent(lastStrategyPath));
+  const rows={};
+  es.addEventListener("variant",(e)=>{
+    const v=JSON.parse(e.data);
+    const row=document.createElement("div");row.className="variant-row";row.id="var-"+v.variant_id;
+    const name=document.createElement("span");name.className="variant-name";name.textContent=v.variant_id+(v.angle?(" · "+v.angle):"");
+    const sh=document.createElement("span");sh.textContent=v.compiled_ok?v.sharpe:"—";
+    const rt=document.createElement("span");rt.textContent=v.compiled_ok?(v.total_return_pct+"%"):"fail";rt.className=(v.total_return_pct>=0?"green":"red");
+    const dd=document.createElement("span");dd.textContent=v.compiled_ok?(v.max_drawdown_pct+"%"):"—";
+    const tr=document.createElement("span");tr.textContent=v.compiled_ok?v.trade_count:"—";
+    const rb=document.createElement("span");rb.textContent=v.passed_rubric?"PASS":"fail";rb.className=v.passed_rubric?"green":"red";
+    [name,sh,rt,dd,tr,rb].forEach(c=>row.appendChild(c));
+    table.appendChild(row);rows[v.variant_id]=row;
+  });
+  es.addEventListener("winner",(e)=>{
+    const d=JSON.parse(e.data);
+    if(rows[d.winner_id])rows[d.winner_id].className="variant-row winner";
+    const j=document.createElement("div");j.className="swarm-judge";
+    const t=document.createElement("div");t.textContent="Opus 4.8 judge → winner: "+d.winner_id;t.style.fontWeight="700";
+    const r=document.createElement("div");r.style.marginTop="6px";r.style.color="var(--text2)";r.textContent=d.reason;
+    j.appendChild(t);j.appendChild(r);panel.appendChild(j);
+    es.close();$("swarmBtn").disabled=false;$("swarmBtn").textContent="Refine with Opus 4.8 swarm (5 agents + judge)";
+  });
+  es.addEventListener("error",()=>{es.close();$("swarmBtn").disabled=false;$("swarmBtn").textContent="Refine with Opus 4.8 swarm (5 agents + judge)";});
 });
 async function pollBot(botId){
   const tick=async()=>{

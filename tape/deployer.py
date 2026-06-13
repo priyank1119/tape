@@ -160,9 +160,18 @@ def _run_bot_loop(handle: BotHandle, strategy) -> None:
 def _paper_buy(handle: BotHandle, sm, decision, strategy) -> None:
     qty = decision.qty or strategy.size_position(decision.confidence, sm)
     cost = qty * sm.current_price
+    # Cap the buy to available cash rather than skipping. If the strategy's
+    # preferred size exceeds the sandbox budget (e.g. a $12 position on a $10
+    # budget), buy as many tokens as the remaining cash affords. Only skip if
+    # we can't even afford a single token.
     if cost > handle.paper_cash:
-        handle.log(f"Skip BUY {sm.key}: ${cost:.2f} > ${handle.paper_cash:.2f} cash")
-        return
+        affordable = int(handle.paper_cash / max(sm.current_price, 0.01))
+        if affordable < 1:
+            handle.log(f"Skip BUY {sm.key}: ${sm.current_price:.3f}/token "
+                       f"> ${handle.paper_cash:.2f} cash")
+            return
+        qty = affordable
+        cost = qty * sm.current_price
     held = handle.paper_positions.get(sm.key)
     if held:
         total = held["qty"] + qty

@@ -338,7 +338,7 @@ def _call_opus_critique(
     if not api_key:
         return "error", "ANTHROPIC_API_KEY not set"
 
-    client = Anthropic(api_key=api_key)
+    client = Anthropic(api_key=api_key, timeout=60.0, max_retries=2)
     model = model or rubric.get("opus_critique", {}).get("model", "claude-opus-4-8")
 
     user_msg = (

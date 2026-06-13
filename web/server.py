@@ -181,6 +181,46 @@ async def api_run(brief: str, skip_opus: bool = False):
 #  Deployment
 # ════════════════════════════════════════════════════════════════════════════
 
+@app.get("/api/swarm")
+async def api_swarm(strategy_path: str):
+    """Stream an Opus 4.8 tournament for an already-compiled strategy.
+
+    Events:
+      step      — stage updates ({stage, message})
+      variant   — one variant's backtest result (streamed as each completes)
+      winner    — the judge's final pick ({winner_id, ranking, reason})
+      error
+    """
+    async def stream():
+        loop = asyncio.get_event_loop()
+        try:
+            from tape.backtester import run as backtest_run
+            from tape.swarm import run_tournament
+
+            yield _sse("step", {"stage": "swarm",
+                                "message": "Backtesting v1, then spawning 5 Opus 4.8 refiners…"})
+
+            def _work():
+                bt = backtest_run(strategy_path, seed=42)
+                return run_tournament(strategy_path, bt)
+
+            result = await loop.run_in_executor(None, _work)
+
+            for v in result.variants:
+                yield _sse("variant", v.to_dict())
+
+            yield _sse("winner", {
+                "winner_id": result.winner_id,
+                "ranking": result.ranking,
+                "reason": result.judge_reason,
+            })
+        except Exception as e:  # noqa: BLE001
+            logger.exception("swarm error")
+            yield _sse("error", {"message": str(e)})
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
+
+
 @app.post("/api/deploy")
 async def api_deploy(request: Request):
     body = await request.json()
