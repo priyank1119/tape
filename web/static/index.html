@@ -101,7 +101,7 @@
   </div>
   <div class="verdict" id="verdict"></div>
   <div class="deploy-row" id="deployRow">
-    <button class="deploy" id="deployBtn">Deploy to sandbox ($25 budget)</button>
+    <button class="deploy" id="deployBtn">Deploy to sandbox ($10 paper budget)</button>
     <span class="toggle">paper trading — no real capital at risk</span>
   </div>
   <div class="bot-state" id="botState"></div>
@@ -132,7 +132,7 @@ $("runBtn").addEventListener("click",()=>{
 $("deployBtn").addEventListener("click",async()=>{
   if(!lastStrategyPath)return;
   $("deployBtn").disabled=true;$("deployBtn").textContent="Deploying...";
-  const resp=await fetch("/api/deploy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({strategy_path:lastStrategyPath,budget:25})});
+  const resp=await fetch("/api/deploy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({strategy_path:lastStrategyPath,budget:10})});
   const d=await resp.json();
   $("botState").className="bot-state show";
   if(!d.success){$("botState").textContent="Deploy failed: "+d.error;return;}
