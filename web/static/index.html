@@ -100,16 +100,10 @@
     <div class="stage-body" id="body-grade"></div>
   </div>
   <div class="verdict" id="verdict"></div>
-  <div class="deploy-row" id="deployRow">
-    <button class="deploy" id="deployBtn">Deploy to sandbox ($25 budget)</button>
-    <span class="toggle">paper trading — no real capital at risk</span>
-  </div>
-  <div class="bot-state" id="botState"></div>
 </div>
 <div class="footer">Tape is not financial advice. Strategies trade in a paper sandbox. Powered by Claude Opus 4.8.</div>
 <script>
 const $ = (id) => document.getElementById(id);
-let lastStrategyPath = null;
 function escapeHtml(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 document.querySelectorAll(".chip").forEach(chip=>{chip.addEventListener("click",()=>{$("brief").value=chip.dataset.brief;});});
 function setIcon(stage,state,label){const icon=$("icon-"+stage);icon.className="stage-icon "+state;icon.textContent=label;$("stage-"+stage).classList.add(state==="running"?"active":"done");}
@@ -117,7 +111,7 @@ $("runBtn").addEventListener("click",()=>{
   const brief=$("brief").value.trim();
   if(!brief){$("brief").focus();return;}
   $("pipeline").classList.add("active");
-  $("verdict").className="verdict";$("deployRow").className="deploy-row";$("botState").className="bot-state";
+  $("verdict").className="verdict";
   ["compile","backtest","grade"].forEach(s=>{$("stage-"+s).className="stage";$("body-"+s).textContent="";$("icon-"+s).className="stage-icon pending";$("icon-"+s).textContent={compile:"1",backtest:"2",grade:"3"}[s];});
   $("runBtn").disabled=true;$("runBtn").textContent="Running...";
   const skipOpus=$("skipOpus").checked;
@@ -126,30 +120,9 @@ $("runBtn").addEventListener("click",()=>{
   es.addEventListener("compile",(e)=>{const d=JSON.parse(e.data);if(!d.success){setIcon("compile","bad","✗");$("body-compile").textContent=d.error;return;}setIcon("compile","ok","✓");const b=$("body-compile");b.textContent="";const meta=document.createElement("div");meta.textContent="Compiled "+d.strategy_name+" · "+d.model+" · "+d.tokens_in+"+"+d.tokens_out+" tokens";const pre=document.createElement("pre");pre.className="code";pre.textContent=d.strategy_src;b.appendChild(meta);b.appendChild(pre);});
   es.addEventListener("backtest",(e)=>{const d=JSON.parse(e.data);setIcon("backtest","ok","✓");const rc=d.total_return_pct>=0?"green":"red";const grid=document.createElement("div");grid.className="metrics";const mk=(label,val,cls)=>{const m=document.createElement("div");m.className="metric";const l=document.createElement("div");l.className="label";l.textContent=label;const v=document.createElement("div");v.className="value "+(cls||"");v.textContent=val;m.appendChild(l);m.appendChild(v);return m;};grid.appendChild(mk("Return",(d.total_return_pct>=0?"+":"")+d.total_return_pct+"%",rc));grid.appendChild(mk("Sharpe",d.sharpe,""));grid.appendChild(mk("Max DD",d.max_drawdown_pct+"%",""));grid.appendChild(mk("Trades",d.trade_count,""));grid.appendChild(mk("Win rate",d.win_rate_pct+"%",""));const b=$("body-backtest");b.textContent="";b.appendChild(grid);});
   es.addEventListener("grade",(e)=>{const d=JSON.parse(e.data);const b=$("body-grade");b.textContent="";const wrap=document.createElement("div");wrap.className="clauses";for(const c of d.clauses){const row=document.createElement("div");row.className="clause";const icon=document.createElement("span");const sym={pass:"✓",fail:"✗",pending:"·"}[c.status];const cls={pass:"green",fail:"red",pending:""}[c.status];icon.className="c-icon "+cls;icon.textContent=sym;const name=document.createElement("span");name.className="c-name";name.textContent=c.name;const val=document.createElement("span");val.className="c-val";val.textContent=(c.actual!==null&&c.threshold!==null)?(c.actual+" / "+c.threshold):"";row.appendChild(icon);row.appendChild(name);row.appendChild(val);wrap.appendChild(row);}b.appendChild(wrap);if(d.opus_critique){const v=document.createElement("div");v.style.marginTop="10px";v.textContent="Opus 4.8 verdict: "+d.opus_verdict;const pre=document.createElement("pre");pre.className="code";pre.textContent=d.opus_critique;b.appendChild(v);b.appendChild(pre);}});
-  es.addEventListener("done",(e)=>{const d=JSON.parse(e.data);setIcon("grade",d.deployable?"ok":"bad",d.deployable?"✓":"✗");const v=$("verdict");v.className="verdict show "+(d.deployable?"pass":"fail");v.textContent=d.deployable?("✅ DEPLOYABLE — "+d.strategy_name+" passed the rubric"):"❌ NOT DEPLOYABLE — strategy failed the rubric (this is the system working: it won't deploy a losing strategy)";if(d.deployable){lastStrategyPath=d.strategy_path;$("deployRow").className="deploy-row show";}es.close();$("runBtn").disabled=false;$("runBtn").textContent="Compile & Backtest";});
+  es.addEventListener("done",(e)=>{const d=JSON.parse(e.data);setIcon("grade",d.deployable?"ok":"bad",d.deployable?"✓":"✗");const v=$("verdict");v.className="verdict show "+(d.deployable?"pass":"fail");v.textContent=d.deployable?("✅ DEPLOYABLE — "+d.strategy_name+" passed the rubric"):"❌ NOT DEPLOYABLE — strategy failed the rubric (this is the system working: it won't deploy a losing strategy)";es.close();$("runBtn").disabled=false;$("runBtn").textContent="Compile & Backtest";});
   es.addEventListener("error",()=>{$("runBtn").disabled=false;$("runBtn").textContent="Compile & Backtest";es.close();});
 });
-$("deployBtn").addEventListener("click",async()=>{
-  if(!lastStrategyPath)return;
-  $("deployBtn").disabled=true;$("deployBtn").textContent="Deploying...";
-  const resp=await fetch("/api/deploy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({strategy_path:lastStrategyPath,budget:25})});
-  const d=await resp.json();
-  $("botState").className="bot-state show";
-  if(!d.success){$("botState").textContent="Deploy failed: "+d.error;return;}
-  $("botState").textContent="Deployed "+d.strategy_name+" · bot "+d.bot_id+" · polling live state...";
-  pollBot(d.bot_id);
-});
-async function pollBot(botId){
-  const tick=async()=>{
-    const r=await fetch("/api/bots/"+botId);if(!r.ok)return;const s=await r.json();
-    const b=$("botState");b.textContent="";
-    const head=document.createElement("div");head.textContent="Bot "+s.strategy_name+" · "+s.bot_id;
-    const stats=document.createElement("div");stats.textContent="cycles: "+s.cycles_completed+" · cash: $"+s.paper_cash+" · positions: "+s.open_positions+" · trades: "+s.trades+" · uptime: "+s.uptime_secs+"s";
-    const log=document.createElement("div");log.style.marginTop="8px";log.style.color="var(--text3)";(s.recent_log||[]).slice(-6).forEach(line=>{const ln=document.createElement("div");ln.textContent=line;log.appendChild(ln);});
-    b.appendChild(head);b.appendChild(stats);b.appendChild(log);
-  };
-  tick();setInterval(tick,5000);
-}
 </script>
 </body>
 </html>
