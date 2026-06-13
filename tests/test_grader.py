@@ -114,7 +114,9 @@ class TestBacktestClauses:
         assert wr.status == "fail"
 
     def test_total_return_failure(self, good_backtest):
-        good_backtest["total_return_pct"] = 1.0
+        rubric = load_rubric()
+        threshold = rubric["backtest"]["min_total_return_pct"]
+        good_backtest["total_return_pct"] = threshold - 0.5  # below the floor
         v = grade(good_backtest, skip_opus=True)
         tr = next(c for c in v.clauses if c.name == "backtest.total_return_ge_min")
         assert tr.status == "fail"

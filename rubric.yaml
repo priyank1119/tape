@@ -48,8 +48,12 @@ backtest:
   min_win_rate_pct: 40
 
   # Minimum cumulative return over the backtest window (90 days default).
-  # Below this, the strategy might be break-even noise rather than edge.
-  min_total_return_pct: 2
+  # Kept low (1%) on purpose: this rubric is Sharpe-PRIMARY. A near-certainty
+  # "bond" strategy harvests small, very safe edges — high Sharpe, low absolute
+  # return — and that's a GOOD strategy, not a failing one. The Sharpe, win-rate,
+  # drawdown and trade-count clauses do the quality gating; this floor only
+  # rejects strategies that are essentially break-even noise.
+  min_total_return_pct: 1
 
   # Maximum exposure concentration. If >X% of capital is ever in a single
   # market, the strategy is too concentrated for sandbox deployment.
