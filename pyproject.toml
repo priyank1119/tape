@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Plain English → backtested → deployed Polymarket trading bot."
 readme = "README.md"
 license = { text = "AGPL-3.0-or-later" }
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 authors = [{ name = "Priyank Mishra" }]
 keywords = ["polymarket", "trading", "claude", "opus", "prediction-markets"]
 
@@ -40,4 +40,4 @@ include = ["tape*", "web*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py310"
