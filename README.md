@@ -44,7 +44,8 @@ Tape does (~60s):
   5. Bot's first cycle log streams back to you in real time
 ```
 
-**Live demo: http://134.209.201.187:8500**
+**Live demo: https://interesting-worship-usb-petition.trycloudflare.com**
+(stable fallback: http://134.209.201.187:8500)
 
 ---
 
