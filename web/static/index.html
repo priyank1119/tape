@@ -193,16 +193,29 @@ $("swarmBtn").addEventListener("click",()=>{
   });
   es.addEventListener("error",()=>{es.close();$("swarmBtn").disabled=false;$("swarmBtn").textContent="Refine with Opus 4.8 swarm (5 agents + judge)";});
 });
-async function pollBot(botId){
+function pollBot(botId){
+  let timer=null, misses=0;
   const tick=async()=>{
-    const r=await fetch("/api/bots/"+botId);if(!r.ok)return;const s=await r.json();
+    let r;
+    try{ r=await fetch("/api/bots/"+botId); }catch(_){ return; }
+    if(!r.ok){
+      // Bot gone (e.g. server restarted, wiping the in-memory registry).
+      // Stop polling after 2 misses instead of spamming 404s forever.
+      if(++misses>=2){
+        clearInterval(timer);
+        $("botState").textContent="Bot "+botId+" is no longer running (the demo server may have restarted). Re-deploy to start a fresh bot.";
+      }
+      return;
+    }
+    misses=0;
+    const s=await r.json();
     const b=$("botState");b.textContent="";
     const head=document.createElement("div");head.textContent="Bot "+s.strategy_name+" · "+s.bot_id;
     const stats=document.createElement("div");stats.textContent="cycles: "+s.cycles_completed+" · cash: $"+s.paper_cash+" · positions: "+s.open_positions+" · trades: "+s.trades+" · uptime: "+s.uptime_secs+"s";
     const log=document.createElement("div");log.style.marginTop="8px";log.style.color="var(--text3)";(s.recent_log||[]).slice(-6).forEach(line=>{const ln=document.createElement("div");ln.textContent=line;log.appendChild(ln);});
     b.appendChild(head);b.appendChild(stats);b.appendChild(log);
   };
-  tick();setInterval(tick,5000);
+  tick();timer=setInterval(tick,5000);
 }
 </script>
 </body>
