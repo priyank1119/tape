@@ -22,9 +22,10 @@
   .composer{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
   textarea{width:100%;min-height:80px;resize:vertical;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:1rem;padding:12px;font-family:inherit}
   textarea:focus{outline:none;border-color:var(--accent)}
-  .examples{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
-  .chip{background:var(--panel2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;font-size:0.82rem;color:var(--text2);cursor:pointer;transition:all 0.15s}
-  .chip:hover{border-color:var(--accent);color:var(--text)}
+  .examples-label{font-size:0.8rem;color:var(--text2);margin:14px 0 6px}
+  .examples{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 4px}
+  .chip{background:rgba(88,166,255,0.10);border:1px solid var(--accent);border-radius:20px;padding:7px 14px;font-size:0.84rem;font-weight:600;color:var(--accent);cursor:pointer;transition:all 0.15s}
+  .chip:hover{background:var(--accent);color:#04121f;transform:translateY(-1px)}
   .row{display:flex;gap:12px;align-items:center;margin-top:8px}
   button.run{background:var(--accent);color:#04121f;border:none;border-radius:8px;padding:12px 24px;font-size:1rem;font-weight:700;cursor:pointer;transition:all 0.15s}
   button.run:hover{background:#79b8ff}
@@ -82,10 +83,13 @@
 </div>
 <div class="composer">
   <textarea id="brief" placeholder="e.g. Buy NO on geopolitical conflict markets when price is above 0.90 and the market resolves within 21 days. Take profit at 5%, stop loss at 10%."></textarea>
+  <div class="examples-label">Try an example — click to load, then Compile &amp; Backtest:</div>
   <div class="examples">
     <span class="chip" data-brief="Buy NO on geopolitical conflict markets when price is above 0.90 and resolves within 21 days. Take profit at 5%, stop loss at 10%.">Geo bond</span>
     <span class="chip" data-brief="Buy YES on crypto markets when bullish news strength exceeds 0.7 and price is below 0.5. Size up on high conviction.">Crypto momentum</span>
     <span class="chip" data-brief="Buy NO on any market priced above 0.93 that resolves within 10 days, skipping markets below 5000 dollars liquidity. Conservative sizing.">Near-certainty harvest</span>
+    <span class="chip" data-brief="Buy NO on any market priced above 0.88 that resolves within 30 days. Add to the position on a 3% dip. Take profit at 5%, stop loss at 12%.">Dip-buy bond</span>
+    <span class="chip" data-brief="Buy NO when recent news sentiment is bearish with strength above 0.5 and the market price is above 0.82. Take profit at 6%, conservative sizing.">News-driven NO</span>
   </div>
   <div class="row">
     <button class="run" id="runBtn">Compile &amp; Backtest</button>
