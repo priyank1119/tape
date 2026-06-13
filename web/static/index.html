@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tape — English to deployed Polymarket bot</title>
+<style>
+  :root {
+    --bg:#0a0e14; --panel:#11161f; --panel2:#161c28; --border:#232b3a;
+    --text:#e6edf3; --text2:#8b98ad; --text3:#5a6678;
+    --green:#3fb950; --red:#f85149; --amber:#d29922; --accent:#58a6ff; --accent2:#bc8cff;
+    --mono:"SF Mono","JetBrains Mono","Fira Code",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;line-height:1.5;padding:24px;max-width:960px;margin:0 auto}
+  a{color:var(--accent);text-decoration:none}
+  .hero{padding:16px 0 24px;border-bottom:1px solid var(--border);margin-bottom:28px}
+  .hero h1{font-size:2.1rem;font-weight:800;letter-spacing:-0.03em}
+  .hero h1 .tape{color:var(--accent)}
+  .hero p{color:var(--text2);margin-top:6px;font-size:1.02rem}
+  .hero .sub{color:var(--text3);margin-top:10px;font-size:0.85rem}
+  .composer{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
+  textarea{width:100%;min-height:80px;resize:vertical;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:1rem;padding:12px;font-family:inherit}
+  textarea:focus{outline:none;border-color:var(--accent)}
+  .examples{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .chip{background:var(--panel2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;font-size:0.82rem;color:var(--text2);cursor:pointer;transition:all 0.15s}
+  .chip:hover{border-color:var(--accent);color:var(--text)}
+  .row{display:flex;gap:12px;align-items:center;margin-top:8px}
+  button.run{background:var(--accent);color:#04121f;border:none;border-radius:8px;padding:12px 24px;font-size:1rem;font-weight:700;cursor:pointer;transition:all 0.15s}
+  button.run:hover{background:#79b8ff}
+  button.run:disabled{background:var(--border);color:var(--text3);cursor:not-allowed}
+  .toggle{color:var(--text2);font-size:0.85rem;display:flex;gap:6px;align-items:center}
+  .pipeline{display:none;margin-top:24px}
+  .pipeline.active{display:block}
+  .stage{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;opacity:0.4;transition:opacity 0.3s}
+  .stage.active,.stage.done{opacity:1}
+  .stage-head{display:flex;align-items:center;gap:10px;font-weight:600}
+  .stage-icon{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0}
+  .stage-icon.pending{background:var(--border);color:var(--text3)}
+  .stage-icon.running{background:var(--amber);color:#000;animation:pulse 1s infinite}
+  .stage-icon.ok{background:var(--green);color:#000}
+  .stage-icon.bad{background:var(--red);color:#fff}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+  .stage-body{margin-top:12px;font-size:0.9rem;color:var(--text2)}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:10px}
+  .metric{background:var(--panel2);border-radius:8px;padding:10px 12px}
+  .metric .label{font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em}
+  .metric .value{font-size:1.3rem;font-weight:700;margin-top:2px}
+  .green{color:var(--green)}.red{color:var(--red)}.amber{color:var(--amber)}
+  pre.code{background:#04070c;border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;font-family:var(--mono);font-size:0.78rem;color:#c9d4e3;margin-top:10px;max-height:340px;overflow-y:auto}
+  .clauses{margin-top:10px;font-family:var(--mono);font-size:0.8rem}
+  .clause{display:flex;align-items:center;gap:8px;padding:3px 0}
+  .clause .c-icon{width:16px}
+  .clause .c-name{flex:1;color:var(--text2)}
+  .clause .c-val{color:var(--text3)}
+  .verdict{margin-top:16px;padding:16px;border-radius:10px;font-weight:700;font-size:1.1rem;display:none}
+  .verdict.show{display:block}
+  .verdict.pass{background:rgba(63,185,80,0.12);border:1px solid var(--green);color:var(--green)}
+  .verdict.fail{background:rgba(248,81,73,0.12);border:1px solid var(--red);color:var(--red)}
+  .deploy-row{margin-top:14px;display:none;gap:12px;align-items:center}
+  .deploy-row.show{display:flex}
+  button.deploy{background:var(--accent2);color:#150a24;border:none;border-radius:8px;padding:10px 20px;font-weight:700;cursor:pointer}
+  .bot-state{margin-top:14px;font-family:var(--mono);font-size:0.8rem;color:var(--text2);background:#04070c;border:1px solid var(--border);border-radius:8px;padding:12px;display:none}
+  .bot-state.show{display:block}
+  .footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);color:var(--text3);font-size:0.8rem}
+</style>
+</head>
+<body>
+<div class="hero">
+  <h1><span class="tape">Tape</span> — English to deployed Polymarket bot</h1>
+  <p>Type a trading strategy in plain English. Claude Opus 4.8 compiles it to Python,
+     backtests it against 90 days of markets, grades it against a rubric, and deploys it.</p>
+  <p class="sub">Built on <a href="https://github.com/priyank1119/pave-capital" target="_blank">pave-capital</a>,
+     an open-source trading engine running live for 80+ days ·
+     <a href="https://github.com/priyank1119/tape" target="_blank">source</a></p>
+</div>
+<div class="composer">
+  <textarea id="brief" placeholder="e.g. Buy NO on geopolitical conflict markets when price is above 0.90 and the market resolves within 21 days. Take profit at 5%, stop loss at 10%."></textarea>
+  <div class="examples">
+    <span class="chip" data-brief="Buy NO on geopolitical conflict markets when price is above 0.90 and resolves within 21 days. Take profit at 5%, stop loss at 10%.">Geo bond</span>
+    <span class="chip" data-brief="Buy YES on crypto markets when bullish news strength exceeds 0.7 and price is below 0.5. Size up on high conviction.">Crypto momentum</span>
+    <span class="chip" data-brief="Buy NO on any market priced above 0.93 that resolves within 10 days, skipping markets below 5000 dollars liquidity. Conservative sizing.">Near-certainty harvest</span>
+  </div>
+  <div class="row">
+    <button class="run" id="runBtn">Compile &amp; Backtest</button>
+    <label class="toggle"><input type="checkbox" id="skipOpus" checked> skip Opus critique (faster)</label>
+  </div>
+</div>
+<div class="pipeline" id="pipeline">
+  <div class="stage" id="stage-compile">
+    <div class="stage-head"><span class="stage-icon pending" id="icon-compile">1</span><span>Compile — Opus 4.8 writes the strategy</span></div>
+    <div class="stage-body" id="body-compile"></div>
+  </div>
+  <div class="stage" id="stage-backtest">
+    <div class="stage-head"><span class="stage-icon pending" id="icon-backtest">2</span><span>Backtest — 90 days of markets</span></div>
+    <div class="stage-body" id="body-backtest"></div>
+  </div>
+  <div class="stage" id="stage-grade">
+    <div class="stage-head"><span class="stage-icon pending" id="icon-grade">3</span><span>Grade — against rubric.yaml</span></div>
+    <div class="stage-body" id="body-grade"></div>
+  </div>
+  <div class="verdict" id="verdict"></div>
+  <div class="deploy-row" id="deployRow">
+    <button class="deploy" id="deployBtn">Deploy to sandbox ($25 budget)</button>
+    <span class="toggle">paper trading — no real capital at risk</span>
+  </div>
+  <div class="bot-state" id="botState"></div>
+</div>
+<div class="footer">Tape is not financial advice. Strategies trade in a paper sandbox. Powered by Claude Opus 4.8.</div>
+<script>
+const $ = (id) => document.getElementById(id);
+let lastStrategyPath = null;
+function escapeHtml(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+document.querySelectorAll(".chip").forEach(chip=>{chip.addEventListener("click",()=>{$("brief").value=chip.dataset.brief;});});
+function setIcon(stage,state,label){const icon=$("icon-"+stage);icon.className="stage-icon "+state;icon.textContent=label;$("stage-"+stage).classList.add(state==="running"?"active":"done");}
+$("runBtn").addEventListener("click",()=>{
+  const brief=$("brief").value.trim();
+  if(!brief){$("brief").focus();return;}
+  $("pipeline").classList.add("active");
+  $("verdict").className="verdict";$("deployRow").className="deploy-row";$("botState").className="bot-state";
+  ["compile","backtest","grade"].forEach(s=>{$("stage-"+s).className="stage";$("body-"+s).textContent="";$("icon-"+s).className="stage-icon pending";$("icon-"+s).textContent={compile:"1",backtest:"2",grade:"3"}[s];});
+  $("runBtn").disabled=true;$("runBtn").textContent="Running...";
+  const skipOpus=$("skipOpus").checked;
+  const es=new EventSource("/api/run?brief="+encodeURIComponent(brief)+"&skip_opus="+skipOpus);
+  es.addEventListener("step",(e)=>{const d=JSON.parse(e.data);setIcon(d.stage,"running","●");const b=$("body-"+d.stage);b.textContent="";const em=document.createElement("em");em.textContent=d.message;b.appendChild(em);});
+  es.addEventListener("compile",(e)=>{const d=JSON.parse(e.data);if(!d.success){setIcon("compile","bad","✗");$("body-compile").textContent=d.error;return;}setIcon("compile","ok","✓");const b=$("body-compile");b.textContent="";const meta=document.createElement("div");meta.textContent="Compiled "+d.strategy_name+" · "+d.model+" · "+d.tokens_in+"+"+d.tokens_out+" tokens";const pre=document.createElement("pre");pre.className="code";pre.textContent=d.strategy_src;b.appendChild(meta);b.appendChild(pre);});
+  es.addEventListener("backtest",(e)=>{const d=JSON.parse(e.data);setIcon("backtest","ok","✓");const rc=d.total_return_pct>=0?"green":"red";const grid=document.createElement("div");grid.className="metrics";const mk=(label,val,cls)=>{const m=document.createElement("div");m.className="metric";const l=document.createElement("div");l.className="label";l.textContent=label;const v=document.createElement("div");v.className="value "+(cls||"");v.textContent=val;m.appendChild(l);m.appendChild(v);return m;};grid.appendChild(mk("Return",(d.total_return_pct>=0?"+":"")+d.total_return_pct+"%",rc));grid.appendChild(mk("Sharpe",d.sharpe,""));grid.appendChild(mk("Max DD",d.max_drawdown_pct+"%",""));grid.appendChild(mk("Trades",d.trade_count,""));grid.appendChild(mk("Win rate",d.win_rate_pct+"%",""));const b=$("body-backtest");b.textContent="";b.appendChild(grid);});
+  es.addEventListener("grade",(e)=>{const d=JSON.parse(e.data);const b=$("body-grade");b.textContent="";const wrap=document.createElement("div");wrap.className="clauses";for(const c of d.clauses){const row=document.createElement("div");row.className="clause";const icon=document.createElement("span");const sym={pass:"✓",fail:"✗",pending:"·"}[c.status];const cls={pass:"green",fail:"red",pending:""}[c.status];icon.className="c-icon "+cls;icon.textContent=sym;const name=document.createElement("span");name.className="c-name";name.textContent=c.name;const val=document.createElement("span");val.className="c-val";val.textContent=(c.actual!==null&&c.threshold!==null)?(c.actual+" / "+c.threshold):"";row.appendChild(icon);row.appendChild(name);row.appendChild(val);wrap.appendChild(row);}b.appendChild(wrap);if(d.opus_critique){const v=document.createElement("div");v.style.marginTop="10px";v.textContent="Opus 4.8 verdict: "+d.opus_verdict;const pre=document.createElement("pre");pre.className="code";pre.textContent=d.opus_critique;b.appendChild(v);b.appendChild(pre);}});
+  es.addEventListener("done",(e)=>{const d=JSON.parse(e.data);setIcon("grade",d.deployable?"ok":"bad",d.deployable?"✓":"✗");const v=$("verdict");v.className="verdict show "+(d.deployable?"pass":"fail");v.textContent=d.deployable?("✅ DEPLOYABLE — "+d.strategy_name+" passed the rubric"):"❌ NOT DEPLOYABLE — strategy failed the rubric (this is the system working: it won't deploy a losing strategy)";if(d.deployable){lastStrategyPath=d.strategy_path;$("deployRow").className="deploy-row show";}es.close();$("runBtn").disabled=false;$("runBtn").textContent="Compile & Backtest";});
+  es.addEventListener("error",()=>{$("runBtn").disabled=false;$("runBtn").textContent="Compile & Backtest";es.close();});
+});
+$("deployBtn").addEventListener("click",async()=>{
+  if(!lastStrategyPath)return;
+  $("deployBtn").disabled=true;$("deployBtn").textContent="Deploying...";
+  const resp=await fetch("/api/deploy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({strategy_path:lastStrategyPath,budget:25})});
+  const d=await resp.json();
+  $("botState").className="bot-state show";
+  if(!d.success){$("botState").textContent="Deploy failed: "+d.error;return;}
+  $("botState").textContent="Deployed "+d.strategy_name+" · bot "+d.bot_id+" · polling live state...";
+  pollBot(d.bot_id);
+});
+async function pollBot(botId){
+  const tick=async()=>{
+    const r=await fetch("/api/bots/"+botId);if(!r.ok)return;const s=await r.json();
+    const b=$("botState");b.textContent="";
+    const head=document.createElement("div");head.textContent="Bot "+s.strategy_name+" · "+s.bot_id;
+    const stats=document.createElement("div");stats.textContent="cycles: "+s.cycles_completed+" · cash: $"+s.paper_cash+" · positions: "+s.open_positions+" · trades: "+s.trades+" · uptime: "+s.uptime_secs+"s";
+    const log=document.createElement("div");log.style.marginTop="8px";log.style.color="var(--text3)";(s.recent_log||[]).slice(-6).forEach(line=>{const ln=document.createElement("div");ln.textContent=line;log.appendChild(ln);});
+    b.appendChild(head);b.appendChild(stats);b.appendChild(log);
+  };
+  tick();setInterval(tick,5000);
+}
+</script>
+</body>
+</html>
