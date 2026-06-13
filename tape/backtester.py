@@ -68,64 +68,88 @@ class SyntheticMarket:
 
 
 # Realistic market titles by theme, so keyword-filtering strategies
-# (e.g. "geopolitical conflict markets") have something to match. Drawn
-# from the kinds of questions actually listed on Polymarket.
+# (e.g. "geopolitical conflict markets", "Fed rate markets") have something
+# to match. Each theme's titles are intentionally keyword-RICH — they pack
+# the terms a strategy in that theme would filter on — so narrow keyword
+# strategies still find markets. Drawn from real Polymarket question shapes.
 _TITLE_BANK = {
     "geopolitical": [
-        "Will the Iran-Israel conflict end by {date}?",
+        "Will the Iran-Israel war / conflict end by {date}?",
         "Will Russia and Ukraine reach a ceasefire before {date}?",
         "Will the US conduct a military strike on Iran by {date}?",
-        "Will North Korea launch a missile test before {date}?",
-        "Will China invade Taiwan by {date}?",
-        "Will NATO troops enter Ukraine before {date}?",
-        "Will there be a nuclear weapon detonation by {date}?",
-        "Will the Gaza ceasefire hold through {date}?",
+        "Will North Korea launch a missile / nuclear test before {date}?",
+        "Will China invade Taiwan (military conflict) by {date}?",
+        "Will NATO troops enter the Ukraine war before {date}?",
+        "Will a nuclear weapon be detonated in conflict by {date}?",
+        "Will the Gaza ceasefire / peace deal hold through {date}?",
+        "Will a new armed conflict break out in the Middle East by {date}?",
+        "Will sanctions on Russia be lifted by {date}?",
     ],
     "macro": [
-        "Will the Fed cut rates at the {date} meeting?",
-        "Will US CPI come in above 3% in {date}?",
+        "Will the Fed cut interest rates at the {date} meeting?",
+        "Will the Fed hold rates steady through {date}?",
+        "Will US CPI inflation come in above 3% in {date}?",
+        "Will US inflation fall below 2% by {date}?",
         "Will the S&P 500 close above 7000 by {date}?",
         "Will the US enter a recession by {date}?",
-        "Will unemployment exceed 5% by {date}?",
+        "Will the unemployment rate exceed 5% by {date}?",
+        "Will GDP growth turn negative by {date}?",
+        "Will the Fed funds rate be cut below 4% by {date}?",
+        "Will a rate hike happen at the {date} FOMC meeting?",
     ],
     "crypto": [
         "Will Bitcoin dip below $50,000 before {date}?",
+        "Will Bitcoin hit a new all-time high by {date}?",
         "Will Ethereum reach $5,000 by {date}?",
         "Will a spot Solana ETF be approved by {date}?",
-        "Will Bitcoin hit a new all-time high by {date}?",
+        "Will Bitcoin close above $100,000 by {date}?",
+        "Will a crypto exchange collapse before {date}?",
+        "Will ETH/BTC ratio rise above 0.05 by {date}?",
+        "Will total crypto market cap exceed $4T by {date}?",
     ],
     "politics": [
-        "Will a government shutdown happen before {date}?",
+        "Will a US government shutdown happen before {date}?",
         "Will the incumbent win the {date} election?",
         "Will a new Supreme Court justice be confirmed by {date}?",
+        "Will impeachment proceedings begin before {date}?",
+        "Will a major new federal law pass by {date}?",
+        "Will the president's approval exceed 50% by {date}?",
     ],
     "sports": [
-        "Will the Lakers make the playoffs by {date}?",
-        "Will Verstappen win the championship by {date}?",
+        "Will the Lakers make the NBA playoffs by {date}?",
+        "Will Verstappen win the F1 championship by {date}?",
+        "Will the favourite win the title by {date}?",
+        "Will a world record be broken by {date}?",
     ],
 }
 
-# Which themes each archetype draws from (affects keyword matching realism)
-_ARCHETYPE_THEMES = {
-    "bond":         ["geopolitical", "politics", "crypto"],
-    "conviction":   ["geopolitical", "macro", "crypto", "politics"],
-    "binary_macro": ["macro", "politics"],
-    "noise":        ["sports", "crypto"],
-}
+# Themes weighted by how commonly users write briefs about them. Round-robin
+# assignment over this list guarantees every theme is well-represented in the
+# universe regardless of archetype mix — so a "Fed rate" or "crypto" strategy
+# always finds enough matching markets.
+_THEME_ROTATION = [
+    "geopolitical", "macro", "crypto", "politics",
+    "geopolitical", "macro", "crypto",
+    "geopolitical", "macro", "sports",
+]
 
 
-def _gen_title(rng: Random, archetype: str) -> str:
-    theme = rng.choice(_ARCHETYPE_THEMES[archetype])
+def _gen_title(rng: Random, theme: str) -> str:
     template = rng.choice(_TITLE_BANK[theme])
-    # Cheap synthetic date label
     month = rng.choice(["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
     day = rng.randint(1, 28)
     return template.format(date=f"{month} {day}")
 
 
-def _sample_market(rng: Random, key: str) -> SyntheticMarket:
-    """Draw one market from the archetype mixture."""
+def _sample_market(rng: Random, key: str, theme: Optional[str] = None) -> SyntheticMarket:
+    """Draw one market from the archetype mixture.
+
+    `theme` (if given) forces the title's theme so the caller can guarantee
+    even theme coverage. Theme is decoupled from archetype: archetype drives
+    the edge/pricing/win-rate; theme only drives the title text used for
+    keyword matching. This prevents narrow-theme strategies from starving.
+    """
 
     # 50% bond (high-probability outcomes), 25% conviction (mid-range with news),
     # 15% binary macro (Fed/rate-cut style), 10% noise (random walk, no edge)
@@ -138,6 +162,9 @@ def _sample_market(rng: Random, key: str) -> SyntheticMarket:
         archetype = "binary_macro"
     else:
         archetype = "noise"
+
+    if theme is None:
+        theme = rng.choice(list(_TITLE_BANK.keys()))
 
     # Pick a side. Prediction-market bots usually trade one side per market;
     # we randomize which side our config assumes for fair coverage.
@@ -161,7 +188,7 @@ def _sample_market(rng: Random, key: str) -> SyntheticMarket:
         terminal = 1.0 if we_win else 0.0
         trajectory = _drift_toward(price_start, terminal, horizon_days, vol=0.015, rng=rng)
         news_trajectory = _gen_news(horizon_days, rng, bias=0.3)
-        title = _gen_title(rng, archetype)
+        title = _gen_title(rng, theme)
         final_outcome = we_win
 
     elif archetype == "conviction":
@@ -173,7 +200,7 @@ def _sample_market(rng: Random, key: str) -> SyntheticMarket:
         terminal = 1.0 if we_win else 0.0
         trajectory = _drift_toward(price_start, terminal, horizon_days, vol=0.04, rng=rng)
         news_trajectory = _gen_news(horizon_days, rng, bias=0.5)
-        title = _gen_title(rng, archetype)
+        title = _gen_title(rng, theme)
         final_outcome = we_win
 
     elif archetype == "binary_macro":
@@ -184,7 +211,7 @@ def _sample_market(rng: Random, key: str) -> SyntheticMarket:
         terminal = 1.0 if we_win else 0.0
         trajectory = _drift_with_jumps(price_start, terminal, horizon_days, n_jumps=2, vol=0.025, rng=rng)
         news_trajectory = _gen_news(horizon_days, rng, bias=0.6)
-        title = _gen_title(rng, archetype)
+        title = _gen_title(rng, theme)
         final_outcome = we_win
 
     else:  # noise
@@ -195,7 +222,7 @@ def _sample_market(rng: Random, key: str) -> SyntheticMarket:
         terminal = 1.0 if we_win else 0.0
         trajectory = _drift_toward(price_start, terminal, horizon_days, vol=0.06, rng=rng)
         news_trajectory = _gen_news(horizon_days, rng, bias=0.1)
-        title = _gen_title(rng, archetype)
+        title = _gen_title(rng, theme)
         final_outcome = we_win
 
     return SyntheticMarket(
@@ -387,7 +414,7 @@ class Portfolio:
 # ════════════════════════════════════════════════════════════════════════════
 
 DEFAULT_DAYS = 90
-DEFAULT_MARKETS = 30
+DEFAULT_MARKETS = 48
 DEFAULT_STARTING_CASH = 100.0
 DEFAULT_SEED = 42
 
@@ -421,7 +448,12 @@ def run(
     strategy = StrategyClass()
 
     rng = Random(seed)
-    markets = [_sample_market(rng, f"mkt_{i:03d}") for i in range(n_markets)]
+    # Round-robin themes across markets so every theme is well-represented
+    # (a "Fed rate" or "crypto" strategy always finds enough matches).
+    markets = [
+        _sample_market(rng, f"mkt_{i:03d}", theme=_THEME_ROTATION[i % len(_THEME_ROTATION)])
+        for i in range(n_markets)
+    ]
 
     portfolio = Portfolio(starting_cash=starting_cash)
 
@@ -582,6 +614,15 @@ def _build_result(
     closed_trades = portfolio.realized_wins + portfolio.realized_losses
     win_rate_pct = (100.0 * portfolio.realized_wins / closed_trades) if closed_trades else 0.0
 
+    # Diagnostic note — most useful when the strategy made zero trades, which
+    # otherwise shows as a confusing wall of zeros. Explains WHY there's no
+    # result so the user can adjust their brief.
+    note = ""
+    if len(portfolio.trades) == 0:
+        note = ("No trades: the strategy's entry criteria matched 0 of "
+                f"{n_markets} markets over {days} days. Try a wider price band, "
+                "a broader market type, or looser entry conditions.")
+
     return {
         "sharpe": round(sharpe, 3),
         "max_drawdown_pct": round(max_dd, 2),
@@ -589,6 +630,7 @@ def _build_result(
         "win_rate_pct": round(win_rate_pct, 1),
         "total_return_pct": round(total_return_pct, 2),
         "max_single_market_concentration_pct": round(max(concentrations) if concentrations else 0.0, 1),
+        "note": note,
         "starting_cash": starting_cash,
         "final_value": round(final_value, 2),
         "realized_pnl": round(portfolio.realized_pnl, 2),

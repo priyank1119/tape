@@ -142,6 +142,7 @@ async def api_run(brief: str, skip_opus: bool = False):
                 "win_rate_pct": bt["win_rate_pct"],
                 "pnl_curve": bt["pnl_curve"],
                 "final_value": bt["final_value"],
+                "note": bt.get("note", ""),
             })
 
             # ── Grade ────────────────────────────────────────────────────
