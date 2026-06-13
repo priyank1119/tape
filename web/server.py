@@ -59,6 +59,13 @@ async def health():
     return {"status": "ok", "service": "tape"}
 
 
+@app.get("/api/limit")
+async def api_limit():
+    """Show today's demo run usage vs the daily cap."""
+    from tape.ratelimit import status
+    return JSONResponse(status())
+
+
 # ════════════════════════════════════════════════════════════════════════════
 #  Pipeline streaming (SSE)
 # ════════════════════════════════════════════════════════════════════════════
@@ -84,6 +91,20 @@ async def api_run(brief: str, skip_opus: bool = False):
     async def stream():
         # Run blocking work in a thread so the event loop stays responsive
         loop = asyncio.get_event_loop()
+
+        # ── Spend guard ──────────────────────────────────────────────────
+        # Each run costs ~$0.20 of Opus tokens on a public URL. Cap daily
+        # usage so a scripted client can't drain the API key.
+        from tape.ratelimit import check_and_increment
+        allowed, used, cap = check_and_increment()
+        if not allowed:
+            yield _sse("error", {
+                "message": f"Daily demo limit reached ({used}/{cap} runs today). "
+                           f"This protects the shared API key. Try again tomorrow, "
+                           f"or run Tape locally with your own key — see the GitHub repo."
+            })
+            yield _sse("done", {"deployable": False, "reason": "rate_limited"})
+            return
 
         try:
             from tape.compiler import compile_strategy

@@ -48,3 +48,4 @@ Thumbs.db
 *.tmp
 bot_logs/
 backtest_cache/
+.ratelimit.json
