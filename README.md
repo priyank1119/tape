@@ -20,9 +20,12 @@ worst moments.
 Tape lets them lock a strategy into runnable code by typing it in plain
 English. Once compiled, the bot trades the strategy without them.
 
-This is the productized version of the trading bot I've been running on my
-own wallet for 80 days at **+$64.79 / +18% verified on-chain return**. That
-substrate is open source as well: [pave-capital](https://github.com/priyank1119/pave-capital).
+Tape grew out of a personal Polymarket trading bot I've run on my own wallet
+for 80+ days — but it shares **no code** with that bot. Everything in this
+repo was written during Claude Build Day (see [CONTRIBUTIONS.md](CONTRIBUTIONS.md)).
+The prior bot is just the motivation: I wanted anyone to be able to deploy a
+disciplined strategy by typing a sentence, instead of writing the engine
+yourself.
 
 ---
 
@@ -70,17 +73,18 @@ tape/
 
 ## Built today (Claude Build Day) vs prior work
 
-**Built during the hackathon** (in this repo):
+**Everything in this repo was built during the hackathon.** Tape imports no
+code from any prior project — it is fully self-contained:
 - Strategy compiler (Opus 4.8 NL → Python)
-- Backtester (historical CLOB replay)
-- Rubric grader (pass/fail spec)
-- Opus 4.8 swarm tournament
-- Sandbox deployer (Docker, budget-capped)
-- Demo web UI
+- Synthetic backtester
+- Rubric grader (pass/fail spec) + Opus 4.8 critique
+- Opus 4.8 swarm tournament (5 parallel refiners + judge)
+- Paper-trading sandbox deployer (budget-capped)
+- Demo web UI (FastAPI + SSE)
 
-**Used as substrate** (prior open-source work):
-- [pave-capital](https://github.com/priyank1119/pave-capital) — trading
-  engine, Polymarket integration, auto-redeemer, risk controls
+**Prior work (not part of this submission, no shared code):** a personal
+Polymarket trading bot I've run for 80+ days. It's the *motivation* for Tape,
+not a dependency.
 
 See [CONTRIBUTIONS.md](CONTRIBUTIONS.md) for a file-by-file map.
 

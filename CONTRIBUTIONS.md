@@ -22,7 +22,7 @@ written during the Build Day hackathon.
 | `tape/prompts/compile.md` | Opus 4.8 strategy-compiler prompt | The IP — designed to leverage 1M context |
 | `tape/prompts/critique.md` | Self-review prompt | Self-improving loop |
 | `tape/prompts/tournament.md` | Pick-winner prompt | Multi-agent judging |
-| `tape/templates/strategy_base.py` | Stub the compiler fills in | Plugs into pave-capital strategy interface |
+| `tape/templates/strategy_base.py` | The strategy interface compiled strategies implement | Self-contained contract; no external deps |
 | `web/server.py` | FastAPI demo UI | NO Streamlit (banned), HTMX for streaming |
 | `web/stream.py` | SSE for Opus-generation live view | Watch-Opus-think effect |
 | `web/static/index.html` | Single-page demo | 3 pre-baked examples + textarea |
@@ -30,39 +30,35 @@ written during the Build Day hackathon.
 
 ---
 
-## Prior work used as substrate
+## Prior work (NOT part of this submission)
 
-The hackathon rules permit augmenting prior projects with Claude during
-the event (§Technologies & Projects). Tape uses `pave-capital` as its
-trading runtime — but does not display, demo, or take credit for any
-pave-capital functionality.
+Tape was motivated by a personal Polymarket trading bot I've run for 80+
+days. **Tape shares no code with that bot** — it imports nothing from it and
+is fully self-contained. The prior bot is a private project; it is not
+demoed, not displayed, and Tape takes no credit for it. It's mentioned only
+to explain where the idea came from.
 
-| Substrate repo | What we use it for |
-|----------------|---------------------|
-| [`pave-capital@65edb96`](https://github.com/priyank1119/pave-capital) | Trading execution library: order placement, risk controls, portfolio reconciliation, auto-redemption, Polymarket API wrappers |
+You can confirm there's no shared code:
 
-**Note on the wallet**: the existing pave-capital wallet
-(`0xf136157E...`) is referenced as a **benchmark only** for the README's
-"+18% verified on-chain return" credibility claim. **Strategies deployed
-via Tape spawn fresh sandbox wallets** with hard budget caps — they do
-NOT trade against the existing capital.
+```bash
+# Tape imports nothing from any external trading project:
+grep -rn "import" tape/ web/ | grep -iE "pave|external" || echo "no external trading imports"
+```
 
-**Note on the dashboard**: pave-capital includes a real-time dashboard.
-This is NOT featured in Tape's demo. The Tape UI is a strategy-compilation
-interface; if a dashboard is shown briefly, it is to verify a deployed bot
-is alive, not as the product itself. (Hackathon rules disqualify projects
-where "a dashboard is the main feature.")
+**Note on trading safety**: Tape's deployer is a PAPER-TRADING sandbox
+(`tape/deployer.py`). The "$10 budget" is an in-memory number — no real
+wallet, no on-chain transaction, no real capital at risk.
+
+**Note on the dashboard**: Tape's UI is a strategy-compilation interface,
+not a dashboard. (Hackathon rules disqualify projects where "a dashboard is
+the main feature.") The deployed-bot state view is a small verification
+surface, not the product.
 
 ---
 
-## How to verify
+## How to verify everything is hackathon work
 
 ```bash
-# Read the file-level provenance:
-git -C tape log --pretty=format:"%h %ai %s" -- '*.py' '*.md' '*.yaml'
-
-# Compare against pave-capital (substrate):
-git -C ../pave-capital log --before="2026-MM-DD HH:MM" --oneline | head
+# Every commit in this repo is dated within the Claude Build Day window:
+git -C tape log --pretty=format:"%h %ai %s"
 ```
-
-Every commit in this repo is dated within the Claude Build Day window.

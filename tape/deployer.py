@@ -20,9 +20,9 @@ The interface is intentionally identical to what a real Docker deployer
 would expose (deploy_strategy + probe), so swapping in real execution later
 is a drop-in change.
 
-NOTE: live price fetching reuses pave-capital's polymarket_fetcher when
-available; otherwise it falls back to the synthetic market generator so the
-demo works fully offline.
+NOTE: the sandbox feeds the bot synthetic markets (same generator as the
+backtester) so the demo is fully self-contained and works offline. A real
+deployment would swap in a live Polymarket price feed here.
 """
 
 from __future__ import annotations
@@ -208,8 +208,8 @@ def _paper_sell(handle: BotHandle, sm, decision) -> None:
 def _fetch_markets(handle: BotHandle):
     """Fetch a batch of markets to decide on this cycle.
 
-    Tries pave-capital's live Polymarket fetcher; falls back to synthetic.
-    Returns a list of dicts with the fields _to_market expects.
+    Uses the synthetic market generator (same as the backtester) so the
+    sandbox is self-contained. Returns dicts with the fields _to_market expects.
     """
     # For the sandbox demo we use synthetic markets seeded by cycle count so
     # prices evolve over time. This keeps the demo fully self-contained and
